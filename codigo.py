@@ -29,36 +29,28 @@ import random
 def generar_IA() -> float:
     """
     Genera el intervalo entre arribos (minutos).
-    F.d.p.: UNIFORME — parámetros pendientes.
-
-    TODO: reemplazar los valores de a y b con los parámetros reales.
+    F.d.p.: LOGNORMAL — ajustada con los datos reales.
+    Parámetros: s=0.4696, loc=21.6551, scale=39.6709
     """
-    a = None   # límite inferior (minutos)  ← PENDIENTE
-    b = None   # límite superior (minutos)  ← PENDIENTE
+    import math
+    s     = 0.4695894952283533
+    loc   = 21.655105619120544
+    scale = 39.67092802604982
 
-    if a is None or b is None:
-        raise NotImplementedError(
-            "generar_IA(): los parámetros a y b de la distribución uniforme "
-            "aún no han sido definidos."
-        )
-
-    return random.uniform(a, b)
+    # Lognormal: loc + scale * e^(s * Z),  donde Z ~ N(0,1)
+    Z = random.gauss(0, 1)
+    return loc + scale * math.exp(s * Z)
 
 
 def generar_TA() -> float:
     """
-    Genera el tiempo de atención (minutos) según el tipo de servicio
-    (Corte / Barba / Corte y Barba).
-    F.d.p.: PENDIENTE — se conoce al momento de la reserva.
-
-    TODO: implementar la lógica de selección del tipo de servicio
-          y la distribución correspondiente para cada uno.
-          Rango conocido: 60 a X minutos (X pendiente).
+    Genera el tiempo de atención (minutos).
+    F.d.p.: UNIFORME — ajustada con los datos reales.
+    Parámetros: loc=30.0, scale=30.0  →  U(30, 60)
     """
-    raise NotImplementedError(
-        "generar_TA(): la f.d.p. del tiempo de atención aún no ha sido definida."
-    )
-
+    loc   = 30.0
+    scale = 30.0
+    return random.uniform(loc, loc + scale)
 
 # =============================================================================
 # FUNCIÓN AUXILIAR: MenorTC
@@ -157,10 +149,14 @@ def simular(N: int, TF: float, verbose: bool = False):
         CLL[I]  += 1
         SPS[I] += (TC[I] - T)        # Permanencia = tiempo que TC queda adelante de T
 
+        # --- Impresión del estado (si verbose=True) ---
         if verbose:
+            estado_puesto = "LIBRE " if TC[I] - ta_cliente <= T else "OCUPADO"
+            espera_mostrar = max(0.0, (TC[I] - ta_cliente) - T) if TC[I] - ta_cliente > T else 0.0
             print(
-                f"T={T:7.2f} | Arribo → Puesto {I+1} | "
-                f"TC={[round(x,1) for x in TC]} | IA={IA:.2f} | TA={ta_cliente:.2f}"
+                f"T={T:7.2f} | Arribo → Puesto {I+1} ({estado_puesto}) | "
+                f"Espera={espera_mostrar:5.1f} min | TA={ta_cliente:.2f} min | "
+                f"TC={[round(x,1) for x in TC]}"
             )
 
         # --- Condición de fin: ¿T >= TF? ---
@@ -204,32 +200,61 @@ def simular(N: int, TF: float, verbose: bool = False):
 
 if __name__ == "__main__":
 
-    # --- Parámetros de la simulación ---
-    N_PUESTOS     = 2          # Variable de control: cantidad de puestos
-    APERTURA      = 9 * 60     # 9:00  → minuto 540 (referencia interna)
-    CIERRE        = 20 * 60    # 20:00 → minuto 1200
-    TF_SIMULACION = CIERRE - APERTURA  # 660 minutos de jornada
+    N_PUESTOS     = 2
+    TF_SIMULACION = 20 * 60 - 9 * 60   # 660 minutos (9:00 a 20:00)
+    VERBOSE       = False
 
-    print("=" * 60)
-    print("   SIMULACIÓN — BARBERÍA CON SISTEMA DE TURNOS")
-    print("=" * 60)
-    print(f"   Puestos (N)  : {N_PUESTOS}")
-    print(f"   Duración (TF): {TF_SIMULACION} minutos")
-    print("=" * 60)
+    # Parámetros reales de las FDP (para mostrar en el header)
+    IA_DIST  = "Lognormal"
+    IA_PARAM = "s=0.4696, loc=21.66, scale=39.67"
+    TA_DIST  = "Uniforme"
+    TA_PARAM = "U(30, 60) min"
 
-    try:
-        resultados = simular(N=N_PUESTOS, TF=TF_SIMULACION, verbose=False)
+    print("=" * 65)
+    print("   SIMULACIÓN — BARBERÍA - TP N4")
+    print("=" * 65)
+    print(f"   Puestos (N)      : {N_PUESTOS}")
+    print(f"   Duración (TF)    : {TF_SIMULACION} min  (9:00 a 20:00)")
+    print(f"   IA               : {IA_DIST}  ({IA_PARAM})")
+    print(f"   TA               : {TA_DIST}  ({TA_PARAM})")
+    print("=" * 65)
 
-        print("\nRESULTADOS POR PUESTO:")
+    resultados = simular(N=N_PUESTOS, TF=TF_SIMULACION, verbose=VERBOSE)
+
+    total_clientes = sum(resultados["CLL"])
+
+    print("\nRESULTADOS POR PUESTO:")
+    print(f"  {'Métrica':<35} ", end="")
+    for i in range(N_PUESTOS):
+        print(f"{'Puesto '+str(i+1):>12}", end="")
+    print()
+    print("  " + "-" * (35 + 12 * N_PUESTOS))
+
+    filas = [
+        ("Clientes atendidos",           "CLL",  ""),
+        ("PPS – Prom. permanencia (min)", "PPS",  " min"),
+        ("PE  – Prom. espera cola (min)", "PE",   " min"),
+        ("PTO – % tiempo ocioso",         "PTO",  " %"),
+        ("PE20 – % espera > 20 min",      "PE20", " %"),
+    ]
+
+    for label, key, unit in filas:
+        print(f"  {label:<35} ", end="")
         for i in range(N_PUESTOS):
-            print(f"\n  Puesto {i+1}:")
-            print(f"    Clientes atendidos        : {resultados['CLL'][i]}")
-            print(f"    PPS  – Prom. permanencia  : {resultados['PPS'][i]:.2f} min")
-            print(f"    PE   – Prom. espera cola  : {resultados['PE'][i]:.2f} min")
-            print(f"    PTO  – % tiempo ocioso    : {resultados['PTO'][i]:.2f} %")
-            print(f"    PE20 – % espera > 20 min  : {resultados['PE20'][i]:.2f} %")
+            val = resultados[key][i]
+            print(f"{str(val)+unit:>12}", end="")
+        print()
 
-    except NotImplementedError as e:
-        print(f"\n[PENDIENTE] {e}")
-        print("\nEl código está estructurado correctamente.")
-        print("Completar las funciones generar_IA() y generar_TA() para ejecutar.")
+    print("\nRESULTADOS GLOBALES:")
+    print(f"  Total clientes simulados   : {total_clientes}")
+
+    pps_global  = sum(resultados["PPS"][i]  * resultados["CLL"][i] for i in range(N_PUESTOS)) / max(total_clientes, 1)
+    pe_global   = sum(resultados["PE"][i]   * resultados["CLL"][i] for i in range(N_PUESTOS)) / max(total_clientes, 1)
+    pto_global  = sum(resultados["PTO"][i]                          for i in range(N_PUESTOS)) / N_PUESTOS
+    pe20_global = sum(resultados["PE20"][i] * resultados["CLL"][i] for i in range(N_PUESTOS)) / max(total_clientes, 1)
+
+    print(f"  PPS  global (ponderado)    : {pps_global:.2f} min")
+    print(f"  PE   global (ponderado)    : {pe_global:.2f} min")
+    print(f"  PTO  global (promedio)     : {pto_global:.2f} %")
+    print(f"  PE20 global (ponderado)    : {pe20_global:.2f} %")
+    print()
