@@ -5,10 +5,10 @@ Universidad Tecnológica Nacional - Facultad Regional Buenos Aires
 Consigna:
 - Barbería con N puestos de atención
 - Horario: Lunes a Sábado, 9:00 a 20:00 (660 minutos)
-- Turnos de 1 hora de duración
+- Turnos de 60 minutos de duración
 - Los clientes se ubican en la cola del puesto con menor TC; empates → puesto 1 (menor índice)
-- IA: intervalo entre arribos con f.d.p. uniforme (PENDIENTE parámetros)
-- TA[i]: tiempo de atención según tipo de corte (PENDIENTE f.d.p. y rangos)
+- IA: intervalo entre arribos con f.d.p. uniforme
+- TA[i]: tiempo de atención
 - Todos los clientes esperan el tiempo necesario
 - Costo del corte: ARS $13.000
 
@@ -21,9 +21,8 @@ Resultados:
 
 import random
 
-
 # =============================================================================
-# SUBRUTINAS DE F.D.P.  (INCOMPLETAS — completar cuando se definan los datos)
+# SUBRUTINAS DE F.D.P.
 # =============================================================================
 
 def generar_IA() -> float:
@@ -193,13 +192,54 @@ def simular(N: int, TF: float, verbose: bool = False):
         "CLL":   CLL,
     }
 
+# =============================================================================
+# IMPRIMIR RESULTADOS
+# =============================================================================
+def imprimir_resultados(resultados, N_PUESTOS):
+    total_clientes = sum(resultados["CLL"])
+
+    print("\nRESULTADOS POR PUESTO:")
+    print(f"  {'Métrica':<35} ", end="")
+    for i in range(N_PUESTOS):
+        print(f"{'Puesto '+str(i+1):>12}", end="")
+    print()
+    print("  " + "-" * (35 + 12 * N_PUESTOS))
+
+    filas = [
+        ("Clientes atendidos",            "CLL",  ""),
+        ("PPS – Prom. permanencia (min)", "PPS",  " min"),
+        ("PE  – Prom. espera cola (min)", "PE",   " min"),
+        ("PTO – % tiempo ocioso",         "PTO",  " %"),
+        ("PE20 – % espera > 20 min",      "PE20", " %"),
+    ]
+
+    for label, key, unit in filas:
+        print(f"  {label:<35} ", end="")
+        for i in range(N_PUESTOS):
+            val = resultados[key][i]
+            print(f"{str(val)+unit:>12}", end="")
+        print()
+
+    print("\nRESULTADOS GLOBALES:")
+    print(f"  Total clientes simulados   : {total_clientes}")
+
+    pps_global  = sum(resultados["PPS"][i]  * resultados["CLL"][i] for i in range(N_PUESTOS)) / max(total_clientes, 1)
+    pe_global   = sum(resultados["PE"][i]   * resultados["CLL"][i] for i in range(N_PUESTOS)) / max(total_clientes, 1)
+    pto_global  = sum(resultados["PTO"][i]                          for i in range(N_PUESTOS)) / N_PUESTOS
+    pe20_global = sum(resultados["PE20"][i] * resultados["CLL"][i] for i in range(N_PUESTOS)) / max(total_clientes, 1)
+
+    print(f"  PPS  global (ponderado)    : {pps_global:.2f} min")
+    print(f"  PE   global (ponderado)    : {pe_global:.2f} min")
+    print(f"  PTO  global (promedio)     : {pto_global:.2f} %")
+    print(f"  PE20 global (ponderado)    : {pe20_global:.2f} %")
+    print()
 
 # =============================================================================
 # PUNTO DE ENTRADA
 # =============================================================================
 if __name__ == "__main__":
 
-    TF_SIMULACION = 1000000000
+    TF_SIMULACION = 1_000_000_000   # High Value
     VERBOSE       = False
 
     IA_DIST  = "Lognormal"
@@ -207,53 +247,31 @@ if __name__ == "__main__":
     TA_DIST  = "Uniforme"
     TA_PARAM = "U(30, 60) min"
 
-    for N_PUESTOS in [1, 2, 3]:
+    print("=" * 65)
+    print("   SIMULACIÓN — BARBERÍA - TP N4")
+    print("=" * 65)
+    print(f"   TF (High Value)  : {TF_SIMULACION:,} min")
+    print(f"   IA               : {IA_DIST}  ({IA_PARAM})")
+    print(f"   TA               : {TA_DIST}  ({TA_PARAM})")
+    print("=" * 65)
 
-        print("=" * 65)
-        print(f"   SIMULACIÓN — BARBERÍA - TP N4  |  N = {N_PUESTOS} PUESTO(S)")
-        print("=" * 65)
-        print(f"   Puestos (N)      : {N_PUESTOS}")
-        print(f"   Duración (TF)    : {TF_SIMULACION} min  (9:00 a 20:00)")
-        print(f"   IA               : {IA_DIST}  ({IA_PARAM})")
-        print(f"   TA               : {TA_DIST}  ({TA_PARAM})")
-        print("=" * 65)
+    while True:
+        try:
+            N_PUESTOS = int(input("\n   Ingresá la cantidad de puestos (N): "))
+            if N_PUESTOS < 1:
+                print("   [!] N debe ser al menos 1.")
+                continue
+            break
+        except ValueError:
+            print("   [!] Ingresá un número entero válido.")
 
+    print(f"\n   Puestos (N)      : {N_PUESTOS}")
+    print("=" * 65)
+    print("\n[i] Simulación en curso... (Ctrl+C para ver resultados parciales)\n")
+
+    try:
         resultados = simular(N=N_PUESTOS, TF=TF_SIMULACION, verbose=VERBOSE)
+    finally:
+        imprimir_resultados(resultados, N_PUESTOS)
 
-        total_clientes = sum(resultados["CLL"])
-
-        print("\nRESULTADOS POR PUESTO:")
-        print(f"  {'Métrica':<35} ", end="")
-        for i in range(N_PUESTOS):
-            print(f"{'Puesto '+str(i+1):>12}", end="")
-        print()
-        print("  " + "-" * (35 + 12 * N_PUESTOS))
-
-        filas = [
-            ("Clientes atendidos",           "CLL",  ""),
-            ("PPS – Prom. permanencia (min)", "PPS",  " min"),
-            ("PE  – Prom. espera cola (min)", "PE",   " min"),
-            ("PTO – % tiempo ocioso",         "PTO",  " %"),
-            ("PE20 – % espera > 20 min",      "PE20", " %"),
-        ]
-
-        for label, key, unit in filas:
-            print(f"  {label:<35} ", end="")
-            for i in range(N_PUESTOS):
-                val = resultados[key][i]
-                print(f"{str(val)+unit:>12}", end="")
-            print()
-
-        print("\nRESULTADOS GLOBALES:")
-        print(f"  Total clientes simulados   : {total_clientes}")
-
-        pps_global  = sum(resultados["PPS"][i]  * resultados["CLL"][i] for i in range(N_PUESTOS)) / max(total_clientes, 1)
-        pe_global   = sum(resultados["PE"][i]   * resultados["CLL"][i] for i in range(N_PUESTOS)) / max(total_clientes, 1)
-        pto_global  = sum(resultados["PTO"][i]                          for i in range(N_PUESTOS)) / N_PUESTOS
-        pe20_global = sum(resultados["PE20"][i] * resultados["CLL"][i] for i in range(N_PUESTOS)) / max(total_clientes, 1)
-
-        print(f"  PPS  global (ponderado)    : {pps_global:.2f} min")
-        print(f"  PE   global (ponderado)    : {pe_global:.2f} min")
-        print(f"  PTO  global (promedio)     : {pto_global:.2f} %")
-        print(f"  PE20 global (ponderado)    : {pe20_global:.2f} %")
-        print()
+    #FIN
