@@ -112,55 +112,59 @@ def simular(N: int, TF: float, verbose: bool = False):
     # ------------------------------------------------------------------
     # BUCLE PRINCIPAL  (flecha que vuelve al inicio: T = TPLL)
     # ------------------------------------------------------------------
-    while True:
+    try:
+        while True:
 
-        # --- Avanzar al próximo arribo ---
-        T = TPLL
+            # --- Avanzar al próximo arribo ---
+            T = TPLL
 
-        # --- Generar intervalo entre arribos y actualizar TPLL ---
-        IA   = generar_IA()
-        TPLL = T + IA
+            # --- Generar intervalo entre arribos y actualizar TPLL ---
+            IA   = generar_IA()
+            TPLL = T + IA
 
-        # --- Determinar a qué puesto va el cliente (I = MenorTC) ---
-        I = menor_TC(TC)
+            # --- Determinar a qué puesto va el cliente (I = MenorTC) ---
+            I = menor_TC(TC)
 
-        # --- Generar tiempo de atención del cliente que acaba de llegar ---
-        ta_cliente = generar_TA()   # TA(I) para el cliente actual
+            # --- Generar tiempo de atención del cliente que acaba de llegar ---
+            ta_cliente = generar_TA()   # TA(I) para el cliente actual
 
-        # --- Evaluación del puesto elegido ---
-        if TC[I] - T > 20:
-            # El cliente tendrá que esperar más de 20 minutos
-            SE20[I] += 1
+            # --- Evaluación del puesto elegido ---
+            if TC[I] - T > 20:
+                # El cliente tendrá que esperar más de 20 minutos
+                SE20[I] += 1
 
-        if TC[I] <= T:
-            # El puesto estaba libre: acumular tiempo ocioso del servidor
-            STO[I] += (T - TC[I])
-            # Actualizar TC: el cliente entra de inmediato
-            TC[I] = T + ta_cliente
-        else:
-            # El puesto estaba ocupado: el cliente espera
-            # Acumular tiempo de espera en cola
-            SE[I] += TC[I] - T  
-            # TC se extiende con el tiempo de atención del nuevo cliente
-            TC[I] = TC[I] + ta_cliente
+            if TC[I] <= T:
+                # El puesto estaba libre: acumular tiempo ocioso del servidor
+                STO[I] += (T - TC[I])
+                # Actualizar TC: el cliente entra de inmediato
+                TC[I] = T + ta_cliente
+            else:
+                # El puesto estaba ocupado: el cliente espera
+                # Acumular tiempo de espera en cola
+                SE[I] += TC[I] - T  
+                # TC se extiende con el tiempo de atención del nuevo cliente
+                TC[I] = TC[I] + ta_cliente
 
-        # --- Acumuladores por puesto ---
-        CLL[I]  += 1
-        SPS[I] += (TC[I] - T)        # Permanencia = tiempo que TC queda adelante de T
+            # --- Acumuladores por puesto ---
+            CLL[I]  += 1
+            SPS[I] += (TC[I] - T)        # Permanencia = tiempo que TC queda adelante de T
 
-        # --- Impresión del estado (si verbose=True) ---
-        if verbose:
-            estado_puesto = "LIBRE " if TC[I] - ta_cliente <= T else "OCUPADO"
-            espera_mostrar = max(0.0, (TC[I] - ta_cliente) - T) if TC[I] - ta_cliente > T else 0.0
-            print(
-                f"T={T:7.2f} | Arribo → Puesto {I+1} ({estado_puesto}) | "
-                f"Espera={espera_mostrar:5.1f} min | TA={ta_cliente:.2f} min | "
-                f"TC={[round(x,1) for x in TC]}"
-            )
+            # --- Impresión del estado (si verbose=True) ---
+            if verbose:
+                estado_puesto = "LIBRE " if TC[I] - ta_cliente <= T else "OCUPADO"
+                espera_mostrar = max(0.0, (TC[I] - ta_cliente) - T) if TC[I] - ta_cliente > T else 0.0
+                print(
+                    f"T={T:7.2f} | Arribo → Puesto {I+1} ({estado_puesto}) | "
+                    f"Espera={espera_mostrar:5.1f} min | TA={ta_cliente:.2f} min | "
+                    f"TC={[round(x,1) for x in TC]}"
+                )
 
-        # --- Condición de fin: ¿T >= TF? ---
-        if T >= TF:
-            break
+            # --- Condición de fin: ¿T >= TF? ---
+            if T >= TF:
+                break
+
+    except KeyboardInterrupt:
+        print("\n[!] Corte manual detectado. Calculando resultados parciales...")
 
     # ------------------------------------------------------------------
     # CÁLCULO DE RESULTADOS FINALES
@@ -269,9 +273,7 @@ if __name__ == "__main__":
     print("=" * 65)
     print("\n[i] Simulación en curso... (Ctrl+C para ver resultados parciales)\n")
 
-    try:
-        resultados = simular(N=N_PUESTOS, TF=TF_SIMULACION, verbose=VERBOSE)
-    finally:
-        imprimir_resultados(resultados, N_PUESTOS)
+    resultados = simular(N=N_PUESTOS, TF=TF_SIMULACION, verbose=VERBOSE)
+    imprimir_resultados(resultados, N_PUESTOS)
 
     #FIN
