@@ -83,7 +83,7 @@ def simular(N: int, TF: float, verbose: bool = False):
     ----------
     N       : cantidad de puestos de atención (variable de control)
     TF      : tiempo final de la simulación en minutos
-              (ej. 660 para una jornada de 9:00 a 20:00)
+              (ej. 660 para una jornada de 9:00 a 20:00 o HV)
     verbose : si True imprime el estado en cada arribo
 
     Retorna
@@ -104,8 +104,8 @@ def simular(N: int, TF: float, verbose: bool = False):
     TC   = [0.0] * N            # Tiempo comprometido de cada puesto (vector)
 
     # Acumuladores de resultados
-    CLL   = [0]   * N            # Número total de clientes atendidos por puesto
-    STO  = [0.0] * N            # Suma de tiempos de espera > 0 (tiempo ocioso opuesto)
+    CLL  = [0]   * N            # Número total de clientes atendidos por puesto
+    STO  = [0.0] * N            # Suma de tiempos ociosos > 0 (tiempo ocioso opuesto)
     SPS  = [0.0] * N            # Suma de permanencias en el sistema por puesto
     SE20 = [0]   * N            # Cantidad de clientes que esperaron > 20 min por puesto
     SE   = [0.0] * N            # Suma de tiempos de espera en cola por puesto (para PE)
@@ -122,11 +122,11 @@ def simular(N: int, TF: float, verbose: bool = False):
         IA   = generar_IA()
         TPLL = T + IA
 
-        # --- Generar tiempo de atención del cliente que acaba de llegar ---
-        ta_cliente = generar_TA()   # TA(I) para el cliente actual
-
         # --- Determinar a qué puesto va el cliente (I = MenorTC) ---
         I = menor_TC(TC)
+
+        # --- Generar tiempo de atención del cliente que acaba de llegar ---
+        ta_cliente = generar_TA()   # TA(I) para el cliente actual
 
         # --- Evaluación del puesto elegido ---
         if TC[I] - T > 20:
@@ -140,10 +140,10 @@ def simular(N: int, TF: float, verbose: bool = False):
             TC[I] = T + ta_cliente
         else:
             # El puesto estaba ocupado: el cliente espera
-            # TC se extiende con el tiempo de atención del nuevo cliente
-            TC[I] = TC[I] + ta_cliente
             # Acumular tiempo de espera en cola
             SE[I] += TC[I] - T  
+            # TC se extiende con el tiempo de atención del nuevo cliente
+            TC[I] = TC[I] + ta_cliente
 
         # --- Acumuladores por puesto ---
         CLL[I]  += 1
@@ -197,64 +197,63 @@ def simular(N: int, TF: float, verbose: bool = False):
 # =============================================================================
 # PUNTO DE ENTRADA
 # =============================================================================
-
 if __name__ == "__main__":
 
-    N_PUESTOS     = 2
-    TF_SIMULACION = 20 * 60 - 9 * 60   # 660 minutos (9:00 a 20:00)
+    TF_SIMULACION = 1000000000
     VERBOSE       = False
 
-    # Parámetros reales de las FDP (para mostrar en el header)
     IA_DIST  = "Lognormal"
     IA_PARAM = "s=0.4696, loc=21.66, scale=39.67"
     TA_DIST  = "Uniforme"
     TA_PARAM = "U(30, 60) min"
 
-    print("=" * 65)
-    print("   SIMULACIÓN — BARBERÍA - TP N4")
-    print("=" * 65)
-    print(f"   Puestos (N)      : {N_PUESTOS}")
-    print(f"   Duración (TF)    : {TF_SIMULACION} min  (9:00 a 20:00)")
-    print(f"   IA               : {IA_DIST}  ({IA_PARAM})")
-    print(f"   TA               : {TA_DIST}  ({TA_PARAM})")
-    print("=" * 65)
+    for N_PUESTOS in [1, 2, 3]:
 
-    resultados = simular(N=N_PUESTOS, TF=TF_SIMULACION, verbose=VERBOSE)
+        print("=" * 65)
+        print(f"   SIMULACIÓN — BARBERÍA - TP N4  |  N = {N_PUESTOS} PUESTO(S)")
+        print("=" * 65)
+        print(f"   Puestos (N)      : {N_PUESTOS}")
+        print(f"   Duración (TF)    : {TF_SIMULACION} min  (9:00 a 20:00)")
+        print(f"   IA               : {IA_DIST}  ({IA_PARAM})")
+        print(f"   TA               : {TA_DIST}  ({TA_PARAM})")
+        print("=" * 65)
 
-    total_clientes = sum(resultados["CLL"])
+        resultados = simular(N=N_PUESTOS, TF=TF_SIMULACION, verbose=VERBOSE)
 
-    print("\nRESULTADOS POR PUESTO:")
-    print(f"  {'Métrica':<35} ", end="")
-    for i in range(N_PUESTOS):
-        print(f"{'Puesto '+str(i+1):>12}", end="")
-    print()
-    print("  " + "-" * (35 + 12 * N_PUESTOS))
+        total_clientes = sum(resultados["CLL"])
 
-    filas = [
-        ("Clientes atendidos",           "CLL",  ""),
-        ("PPS – Prom. permanencia (min)", "PPS",  " min"),
-        ("PE  – Prom. espera cola (min)", "PE",   " min"),
-        ("PTO – % tiempo ocioso",         "PTO",  " %"),
-        ("PE20 – % espera > 20 min",      "PE20", " %"),
-    ]
-
-    for label, key, unit in filas:
-        print(f"  {label:<35} ", end="")
+        print("\nRESULTADOS POR PUESTO:")
+        print(f"  {'Métrica':<35} ", end="")
         for i in range(N_PUESTOS):
-            val = resultados[key][i]
-            print(f"{str(val)+unit:>12}", end="")
+            print(f"{'Puesto '+str(i+1):>12}", end="")
         print()
+        print("  " + "-" * (35 + 12 * N_PUESTOS))
 
-    print("\nRESULTADOS GLOBALES:")
-    print(f"  Total clientes simulados   : {total_clientes}")
+        filas = [
+            ("Clientes atendidos",           "CLL",  ""),
+            ("PPS – Prom. permanencia (min)", "PPS",  " min"),
+            ("PE  – Prom. espera cola (min)", "PE",   " min"),
+            ("PTO – % tiempo ocioso",         "PTO",  " %"),
+            ("PE20 – % espera > 20 min",      "PE20", " %"),
+        ]
 
-    pps_global  = sum(resultados["PPS"][i]  * resultados["CLL"][i] for i in range(N_PUESTOS)) / max(total_clientes, 1)
-    pe_global   = sum(resultados["PE"][i]   * resultados["CLL"][i] for i in range(N_PUESTOS)) / max(total_clientes, 1)
-    pto_global  = sum(resultados["PTO"][i]                          for i in range(N_PUESTOS)) / N_PUESTOS
-    pe20_global = sum(resultados["PE20"][i] * resultados["CLL"][i] for i in range(N_PUESTOS)) / max(total_clientes, 1)
+        for label, key, unit in filas:
+            print(f"  {label:<35} ", end="")
+            for i in range(N_PUESTOS):
+                val = resultados[key][i]
+                print(f"{str(val)+unit:>12}", end="")
+            print()
 
-    print(f"  PPS  global (ponderado)    : {pps_global:.2f} min")
-    print(f"  PE   global (ponderado)    : {pe_global:.2f} min")
-    print(f"  PTO  global (promedio)     : {pto_global:.2f} %")
-    print(f"  PE20 global (ponderado)    : {pe20_global:.2f} %")
-    print()
+        print("\nRESULTADOS GLOBALES:")
+        print(f"  Total clientes simulados   : {total_clientes}")
+
+        pps_global  = sum(resultados["PPS"][i]  * resultados["CLL"][i] for i in range(N_PUESTOS)) / max(total_clientes, 1)
+        pe_global   = sum(resultados["PE"][i]   * resultados["CLL"][i] for i in range(N_PUESTOS)) / max(total_clientes, 1)
+        pto_global  = sum(resultados["PTO"][i]                          for i in range(N_PUESTOS)) / N_PUESTOS
+        pe20_global = sum(resultados["PE20"][i] * resultados["CLL"][i] for i in range(N_PUESTOS)) / max(total_clientes, 1)
+
+        print(f"  PPS  global (ponderado)    : {pps_global:.2f} min")
+        print(f"  PE   global (ponderado)    : {pe_global:.2f} min")
+        print(f"  PTO  global (promedio)     : {pto_global:.2f} %")
+        print(f"  PE20 global (ponderado)    : {pe20_global:.2f} %")
+        print()
